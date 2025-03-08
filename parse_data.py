@@ -8,10 +8,12 @@ import time
 
 from pandas.conftest import datetime64_dtype
 
+from clean_up_funcs import *
 
-def _cleanup(label):
+
+def cleanup_str(string: str):
     return (
-        label.lower()
+        string.lower()
         .strip()
         .replace("?", "")
         .replace("()", "")
@@ -21,7 +23,7 @@ def _cleanup(label):
 
 
 def get_date_from_county_fairs():
-    timetotal_start = time.time()
+    time_total_start = time.time()
     rows = []
 
     file_list = os.listdir(
@@ -54,48 +56,49 @@ def get_date_from_county_fairs():
                 for year in years:
                     for i in range(df.shape[0]):
                         if not pd.isnull(df[year].iloc[i]):
+                            if df[year].iloc[i] != "":
 
-                            given_id: str = df["Variety"].iloc[i]
-                            alt_id: str = df["Alt. Name Given"].iloc[i]
-                            presumed_id: str = df["Presumed ID"].iloc[i]
+                                given_id: str = df["Variety"].iloc[i]
+                                alt_id: str = df["Alt. Name Given"].iloc[i]
+                                presumed_id: str = df["Presumed ID"].iloc[i]
 
-                            uncertain = "?" in presumed_id
+                                uncertain = "?" in presumed_id
 
-                            is_apple = True
+                                is_apple = True
 
-                            given_id_clean = _cleanup(given_id)
+                                given_id_clean = cleanup_str(given_id)
 
-                            # given_id = given_id
-                            if "(pear)" in given_id_clean:
-                                is_apple = False
-                                given_id_clean = given_id_clean.replace(
-                                    "(pear)", ""
-                                ).strip()
+                                # given_id = given_id
+                                if "(pear)" in given_id_clean:
+                                    is_apple = False
+                                    given_id_clean = given_id_clean.replace(
+                                        "(pear)", ""
+                                    ).strip()
 
-                            presumed_id_clean = _cleanup(presumed_id)
-                            if "(pear)" in presumed_id_clean:
-                                presumed_id_clean = presumed_id_clean.replace(
-                                    "(pear)", ""
-                                ).strip()
-                                is_apple = False
+                                presumed_id_clean = cleanup_str(presumed_id)
+                                if "(pear)" in presumed_id_clean:
+                                    presumed_id_clean = presumed_id_clean.replace(
+                                        "(pear)", ""
+                                    ).strip()
+                                    is_apple = False
 
-                            alt_id_clean = _cleanup(alt_id)
+                                alt_id_clean = cleanup_str(alt_id)
 
-                            rows.append(
-                                dict(
-                                    County=county_name,
-                                    Fair=fair,
-                                    Year=year,
-                                    IsApple=is_apple,
-                                    Given_ID=given_id,
-                                    Given_ID_Clean=given_id_clean,
-                                    Alt_ID=alt_id,
-                                    Alt_ID_Clean=alt_id_clean,
-                                    Presumed_ID=presumed_id,
-                                    Presumed_ID_Clean=presumed_id_clean,
-                                    Uncertain=uncertain,
+                                rows.append(
+                                    dict(
+                                        County=cleanup_str(county),
+                                        Fair=cleanup_str(fair),
+                                        Year=float_to_int(year),
+                                        IsApple=is_apple,
+                                        Given_ID=given_id,
+                                        Given_ID_Clean=given_id_clean,
+                                        Alt_ID=alt_id,
+                                        Alt_ID_Clean=alt_id_clean,
+                                        Presumed_ID=presumed_id,
+                                        Presumed_ID_Clean=presumed_id_clean,
+                                        Uncertain=uncertain,
+                                    )
                                 )
-                            )
             except Exception as e:
                 g = list(df.columns)
                 if g[2] != "Presumed ID":
@@ -110,7 +113,7 @@ def get_date_from_county_fairs():
                 print("ERROR: unknown")
 
         print(f" time: {time.time() - time_start}s")
-    print(f" time total: {time.time() - timetotal_start}s")
+    print(f" time total: {time.time() - time_total_start}s")
     data = pd.DataFrame.from_records(rows)
     print("done reading files.")
     return data
@@ -153,14 +156,14 @@ def get_data_from_source():
 
                     rows.append(
                         dict(
-                            county=_cleanup(county_name),
-                            fair=_cleanup(fair),
-                            year=year,
-                            event=_cleanup(event),
-                            location=_cleanup(location),
-                            source=_cleanup(source),
-                            page=page,
-                            notes=_cleanup(notes),
+                            county=cleanup_str(county_name),
+                            fair=cleanup_str(fair),
+                            year=int(year),
+                            event=cleanup_str(event),
+                            location=cleanup_str(location),
+                            source=cleanup_str(source),
+                            page=int(page),
+                            notes=cleanup_str(notes),
                         )
                     )
             except Exception as e:
@@ -170,22 +173,7 @@ def get_data_from_source():
 
                 print(f"columns: {list(sd.columns)}")
 
-    reformated_data = pd.DataFrame.from_records(rows).drop_duplicates()
-    # reformated_data["source_date"] = reformated_data["source_date"].apply(
-    #     lambda x: pd.to_datetime(x).strftime("%d/%m/%Y")
-    # )
-    # reformated_data["source_date"] = reformated_data["source_date"].dt.date
-
-    # def _convert_if_timestamp(value):
-    #     if isinstance(value, pd.Timestamp):
-    #         return value.to_pydatetime()
-    #     return value
-
-    # reformated_data["source_date"] = reformated_data["source_date"].apply(
-    #     _convert_if_timestamp
-    # )
-    # reformated_data["source_date"] = reformated_data["source_date"].dt.date
-    # reformated_data["type_column"] = reformated_data["source_date"].apply(type)
+    reformated_data = pd.DataFrame.from_records(rows)
     reformated_data.to_csv("csv/reformated_sources.csv", index=False)
     print("data")
 
@@ -209,17 +197,11 @@ def save_data(data):
 
 
 def main():
-    # df = get_data_from_source()
-    rsc = pd.read_csv("csv/reformated_sources_clean.csv")
-    tc = pd.read_csv(
-        "/Users/jwilliamson/git/plasma_particle_simulator/Apple-mapping/codes/town cords.csv",
-        sep="\t",
-    )
-    rs = rsc["Location"]
-    tb = tc["Location"]
-    g = rs.merge(tb, on="Location", how="left")
+    df = get_date_from_county_fairs()
+    save_data(df)
     print("all done")
 
 
 if __name__ == "__main__":
+    remove_errors()
     main()
